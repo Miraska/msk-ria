@@ -10,9 +10,12 @@ COPY myenv /myenv
 ENV PATH="/myenv/bin:$PATH"
 
 # Установка зависимостей
-RUN echo "Обновление pip..." && \
-    pip install --upgrade pip && \
-    echo "Установка зависимостей из requirements.txt..." && \
+# RUN echo "Обновление pip..." && \
+#     pip install --upgrade pip && \
+
+RUN echo "Активация виртуального окружения..." && \
+    . /myenv/bin/activate && \
+    echo "Виртуальное окружение активировано." && \
 
 # Копирование остальных файлов
 COPY . .
