@@ -7,7 +7,7 @@ WORKDIR /app
 COPY myenv /myenv
 
 # Создаем директорию, если она не существует, и копируем исполнимый файл Python
-RUN mkdir -p /myenv/bin && cp /usr/local/bin/python /myenv/Scripts/python
+RUN mkdir -p /myenv/Scripts && cp /usr/local/bin/python /myenv/Scripts/python
 
 # Устанавливаем переменные окружения для использования виртуального окружения
 ENV VIRTUAL_ENV="/myenv"
