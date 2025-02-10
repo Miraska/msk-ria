@@ -35,4 +35,4 @@ COPY . .
 RUN echo "Сборка завершена."
 
 # Команда для запуска приложения
-CMD ["/myenv/bin/python", "main.py"] 
+CMD ["/myenv/Scripts/python", "main.py"] 
