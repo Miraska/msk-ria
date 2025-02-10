@@ -11,7 +11,8 @@ RUN mkdir -p /myenv/Scripts && cp /usr/local/bin/python /myenv/Scripts/python
 
 # Устанавливаем переменные окружения для использования виртуального окружения
 ENV VIRTUAL_ENV="/myenv"
-ENV PATH="$VIRTUAL_ENV/Scripts:$PATH"
+ENV PATH="/myenv/Scripts:$PATH"
+ENV PATH="/myenv/bin:$PATH"
 
 # Устанавливаем pip в виртуальное окружение
 RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
@@ -35,4 +36,4 @@ COPY . .
 RUN echo "Сборка завершена."
 
 # Команда для запуска приложения
-CMD ["/myenv/Scripts/python", "main.py"] 
+CMD ["/myenv/Scripts/python", "main.py"]
