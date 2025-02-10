@@ -80,7 +80,7 @@ def scheduled_task():
 
 
 # Настройка расписания
-process_all_parsers()
+# process_all_parsers()
 schedule.every(2).hours.do(scheduled_task)
 
 print("Запуск мониторинга RSS...\n")
