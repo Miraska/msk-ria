@@ -6,11 +6,12 @@ WORKDIR /app
 # Копирование виртуального окружения
 COPY myenv /myenv
 
-# Установка переменной окружения для использования виртуального окружения
+# Настройка переменной окружения для использования виртуального окружения
 ENV PATH="/myenv/bin:$PATH"
 
-# Проверка, что Python и pip используются из виртуального окружения
-RUN which python && python --version && pip --version
+# Проверка Python и pip
+RUN python -c "import sys; print('Используемый Python:', sys.executable)" && \
+    python -m pip list
 
 # Копирование остальных файлов
 COPY . .
