@@ -6,12 +6,14 @@ WORKDIR /app
 # Копирование виртуального окружения
 COPY myenv /myenv
 
-# Подмена системного Python на Python из виртуального окружения
-RUN ln -sf /myenv/bin/python /usr/local/bin/python
+# Проверка содержимого виртуального окружения
+RUN ls -l /myenv/bin/
+
+# Установка переменной окружения для использования виртуального окружения
+ENV PATH="/myenv/bin:$PATH"
 
 # Проверка используемого Python и установленных пакетов
-RUN python -c "import sys; print('Используемый Python:', sys.executable)" && \
-    python -m pip list
+RUN which python && python --version && python -m pip list
 
 # Копирование остальных файлов
 COPY . .
