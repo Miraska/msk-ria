@@ -6,17 +6,17 @@ WORKDIR /app
 # Копирование виртуального окружения
 COPY myenv /myenv
 
-# Настройка переменной окружения для использования виртуального окружения
-ENV PATH="/myenv/bin:$PATH"
+# Подмена системного Python на Python из виртуального окружения
+RUN ln -sf /myenv/bin/python /usr/local/bin/python
 
-# Проверка Python и pip
+# Проверка используемого Python и установленных пакетов
 RUN python -c "import sys; print('Используемый Python:', sys.executable)" && \
     python -m pip list
 
 # Копирование остальных файлов
 COPY . .
 
-# Логирование: завершение сборки
+# Логирование завершения сборки
 RUN echo "Сборка завершена."
 
 # Запуск приложения
