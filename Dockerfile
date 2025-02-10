@@ -8,7 +8,7 @@ COPY requirements.txt .
 
 # Активация виртуального окружения и установка зависимостей
 RUN echo "Активация виртуального окружения..." && \
-    . /opt/myenv/bin/activate && \
+    . /myenv/bin/activate && \
     echo "Виртуальное окружение активировано." && \
     echo "Обновление pip..." && \
     pip install --upgrade pip && \
@@ -18,7 +18,7 @@ RUN echo "Активация виртуального окружения..." && 
 COPY . .
 
 # Установка переменной окружения
-ENV PATH="/opt/myenv/bin:$PATH"
+ENV PATH="/myenv/bin:$PATH"
 
 # Логирование: завершение сборки
 RUN echo "Сборка завершена."
