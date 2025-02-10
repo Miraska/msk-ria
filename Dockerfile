@@ -6,7 +6,6 @@ WORKDIR /app
 # Установка зависимостей для tesseract
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
-    libjpeg8-dev \
     liblcms2-dev \
     libopenjp2-7-dev \
     zlib1g-dev \
