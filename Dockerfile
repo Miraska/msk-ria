@@ -1,22 +1,27 @@
+# Используем базовый образ Python
 FROM python:3.11.1
 
+# Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Копирование виртуального окружения
+# Копируем виртуальное окружение
 COPY myenv /myenv
 
-# Проверка, что виртуальное окружение действительно скопировалось
-RUN ls -l /myenv || echo "Директория /myenv не найдена!"
-RUN ls -l /myenv/Scripts || echo "Директория /myenv/Scripts не найдена!"
+# Устанавливаем переменные окружения для использования виртуального окружения
+ENV VIRTUAL_ENV="/myenv"
+ENV PATH="$VIRTUAL_ENV/Scripts:$PATH"
 
-# Установка переменной окружения для Windows-окружения
-ENV PATH="/myenv/Scripts:$PATH"
+# Проверяем, что используется Python из виртуального окружения
+RUN echo "Проверка используемого Python:" && \
+    which python && python --version && \
+    echo "Список установленных пакетов:" && \
+    python -m pip list
 
-# Проверка используемого Python
-RUN which python && python --version && python -m pip list
-
+# Копируем остальные файлы проекта
 COPY . .
 
+# Логирование завершения сборки
 RUN echo "Сборка завершена."
 
-CMD ["python", "main.py"]
+# Команда для запуска приложения
+CMD ["/myenv/Scripts/python", "main.py"]
