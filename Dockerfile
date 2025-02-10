@@ -14,7 +14,11 @@ ENV VIRTUAL_ENV="/myenv"
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Проверяем, что используется Python из виртуального окружения
-RUN echo "Проверка используемого Python:" && \
+RUN echo "Проверка доступных исполнимых файлов:" && \
+    ls -l /usr/local/bin/ && \
+    echo "Проверка директории виртуального окружения:" && \
+    ls -l /myenv/bin/ && \
+    echo "Проверка используемого Python:" && \
     which python && python --version && \
     echo "Список установленных пакетов:" && \
     python -m pip list
@@ -26,4 +30,4 @@ COPY . .
 RUN echo "Сборка завершена."
 
 # Команда для запуска приложения
-CMD ["/myenv/bin/python", "main.py"] 
+CMD ["/myenv/bin/python", "main.py"]  # Для Linux
