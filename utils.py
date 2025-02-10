@@ -13,8 +13,8 @@ import time
 import asyncio
 
 # Для обрезки фото
-from PIL import Image
-import pytesseract
+# from PIL import Image
+# import pytesseract
 import requests
 from io import BytesIO
 
@@ -251,27 +251,27 @@ def check_and_crop_image(image_url):
     """Проверка изображения на наличие слова 'Reuters' и обрезка на 10% сверху и снизу"""
     try:
         # Загрузка изображения
-        response = requests.get(image_url)
-        image = Image.open(BytesIO(response.content))
+        # response = requests.get(image_url)
+        # image = Image.open(BytesIO(response.content))
 
-        # Распознавание текста на изображении
-        text = pytesseract.image_to_string(image)
+        # # Распознавание текста на изображении
+        # text = pytesseract.image_to_string(image)
 
-        # Проверка на наличие слова 'Reuters'
-        if 'REUTERS' in text:
-            print("[DEBUG] На изображении найдено слово 'Reuters'. Обрезка изображения...")
-            width, height = image.size
-            crop_height = int(height * 0.15)  # 10% от высоты изображения
+        # # Проверка на наличие слова 'Reuters'
+        # if 'REUTERS' in text:
+        #     print("[DEBUG] На изображении найдено слово 'Reuters'. Обрезка изображения...")
+        #     width, height = image.size
+        #     crop_height = int(height * 0.15)  # 10% от высоты изображения
 
-            # Обрезка изображения на 10% сверху и снизу
-            cropped_image = image.crop((0, crop_height, width, height - crop_height))
+        #     # Обрезка изображения на 10% сверху и снизу
+        #     cropped_image = image.crop((0, crop_height, width, height - crop_height))
 
-            # Сохранение обрезанного изображения во временный файл
-            cropped_image_path = "cropped_image.jpg"
-            cropped_image.save(cropped_image_path)
+        #     # Сохранение обрезанного изображения во временный файл
+        #     cropped_image_path = "cropped_image.jpg"
+        #     cropped_image.save(cropped_image_path)
 
-            return cropped_image_path
-        else:
+        #     return cropped_image_path
+        # else:
             return image_url
 
     except Exception as e:
