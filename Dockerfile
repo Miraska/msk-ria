@@ -3,7 +3,7 @@ FROM python:3.11.1
 # Установка рабочей директории
 WORKDIR /app
 
-# Установка зависимостей для tesseract и Pillow
+# Установка зависимостей для tesseract
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     libjpeg8-dev \
@@ -29,9 +29,6 @@ ENV PATH="/myenv/bin:$PATH"
 RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
     /myenv/Scripts/python get-pip.py && \
     rm get-pip.py
-
-# Устанавливаем или обновляем Pillow
-RUN /myenv/Scripts/python -m pip install --upgrade Pillow
 
 # Проверяем, что используется Python из виртуального окружения
 RUN echo "Проверка доступных исполнимых файлов:" && \
