@@ -3,6 +3,15 @@ FROM python:3.11.1
 # Установка рабочей директории
 WORKDIR /app
 
+# Установка зависимостей для tesseract
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    libleptonica-dev \
+    libpng-dev \
+    libjpeg8-dev \
+    libtiff-dev \
+    libicu-dev
+
 # Копирование виртуального окружения
 COPY myenv /myenv
 
