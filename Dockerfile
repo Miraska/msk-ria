@@ -14,7 +14,7 @@ ENV PATH="/myenv/bin:$PATH"
 #     pip install --upgrade pip && \
 
 RUN echo "Активация виртуального окружения..." && \
-    . /myenv/bin/activate && \
+    . /myenv/scripts/activate && \
     echo "Виртуальное окружение активировано." && \
 
 # Копирование остальных файлов
