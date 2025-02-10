@@ -11,7 +11,7 @@ RUN cp /usr/local/bin/python /myenv/bin/python
 
 # Устанавливаем переменные окружения для использования виртуального окружения
 ENV VIRTUAL_ENV="/myenv"
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"  # Для Linux
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Проверяем, что используется Python из виртуального окружения
 RUN echo "Проверка используемого Python:" && \
