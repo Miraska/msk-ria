@@ -6,7 +6,7 @@ from utils import setup_database
 
 setup_database()
 
-PARSERS = [ria, moscowtimes, habr, stopgame, championat, forklog]
+PARSERS = [ria]
 
 # def process_all_parsers():
 #     """Запускает обработку для всех парсеров"""
