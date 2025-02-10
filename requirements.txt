@@ -1,0 +1,8 @@
+bs4
+aiogram==2.25.2
+requests
+python-wordpress-xmlrpc
+openai==0.28
+asyncio
+pytesseract
+schedule

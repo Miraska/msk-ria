@@ -1,0 +1,10 @@
+DB_NAME = r'DB'
+# WP_URL = 'https://olimpslots.com/xmlrpc.php'
+# WP_USERNAME = 'olimpslots_c'
+# WP_PASSWORD = 'ZIxdwcAjYEHnn2Xr'
+WP_URL = 'https://sgzt.com/xmlrpc.php'
+WP_USERNAME = 'rimmaruslan98@gmail.com'
+WP_PASSWORD = ':Qs00u55'
+openai_api_key = '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'
+TELEGRAM_BOT_TOKEN = "7091373217:AAG9cIbfToq5SKqcQzBeKByniBGxNePLlA0"
+TELEGRAM_CHAT_ID = "1911446924" 
