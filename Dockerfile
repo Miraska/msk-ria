@@ -13,6 +13,11 @@ RUN mkdir -p /myenv/bin && cp /usr/local/bin/python /myenv/bin/python
 ENV VIRTUAL_ENV="/myenv"
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
+# Устанавливаем pip в виртуальное окружение
+RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
+    /myenv/bin/python get-pip.py && \
+    rm get-pip.py
+
 # Проверяем, что используется Python из виртуального окружения
 RUN echo "Проверка доступных исполнимых файлов:" && \
     ls -l /usr/local/bin/ && \
