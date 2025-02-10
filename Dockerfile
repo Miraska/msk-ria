@@ -3,6 +3,11 @@ FROM python:3.11.1
 # Установка рабочей директории
 WORKDIR /app
 
+# Устанавливаем зависимости для Tesseract (например, на базе Ubuntu)
+RUN apt-get update && \
+    apt-get install -y tesseract-ocr && \
+    apt-get clean
+
 # Копирование виртуального окружения
 COPY myenv /myenv
 
@@ -31,11 +36,6 @@ RUN echo "Проверка доступных исполнимых файлов:
 
 # Копируем остальные файлы проекта
 COPY . .
-
-# Определяем директорию для установки пакетов и сохраняем ее в переменную
-RUN SITE_PATH=$(python -c "import site; import sys; print(site.getsitepackages()[0])") && \
-    echo "Site Packages Path: $SITE_PATH" && \
-    cp -r /myenv/Lib/site-packages/* $SITE_PATH/
 
 # Логирование завершения сборки
 RUN echo "Сборка завершена."
