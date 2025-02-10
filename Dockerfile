@@ -32,6 +32,12 @@ RUN echo "Проверка доступных исполнимых файлов:
 # Копируем остальные файлы проекта
 COPY . .
 
+# Определяем директорию для установки пакетов
+RUN python -c "import site; print(site.getsitepackages())" > /tmp/python_site.txt
+
+# Перемещаем ваши библиотеки в нужную директорию
+RUN cp -r /myenv/Lib/site-packages/* $(cat /tmp/python_site.txt | tr -d '\n')/site-packages/
+
 # Логирование завершения сборки
 RUN echo "Сборка завершена."
 
