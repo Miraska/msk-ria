@@ -15,10 +15,11 @@ COPY myenv /myenv
 ENV VIRTUAL_ENV="/myenv"
 ENV PATH="/myenv/bin:$PATH"
 
-# Устанавливаем pip в виртуальное окружение
-RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
-    /myenv/bin/python get-pip.py && \
-    rm get-pip.py
+# Проверяем наличие Python в виртуальном окружении
+RUN ls -l /myenv/bin/
+
+# Устанавливаем pip в виртуальное окружение, используя правильный путь
+RUN /myenv/bin/python -m ensurepip --upgrade
 
 # Проверяем, что используется Python из виртуального окружения
 RUN echo "Проверка доступных исполнимых файлов:" && \
