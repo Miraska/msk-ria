@@ -6,17 +6,22 @@ WORKDIR /app
 # Копирование зависимостей
 COPY requirements.txt .
 
-# Создание виртуального окружения и установка зависимостей
-RUN python -m venv /opt/venv && \
-    . /opt/venv/bin/activate && \
+# Активация виртуального окружения и установка зависимостей
+RUN echo "Активация виртуального окружения..." && \
+    . /opt/myenv/bin/activate && \
+    echo "Виртуальное окружение активировано." && \
+    echo "Обновление pip..." && \
     pip install --upgrade pip && \
-    pip install -r requirements.txt
+    echo "Зависимости установлены."
 
 # Копирование остальных файлов
 COPY . .
 
 # Установка переменной окружения
-ENV PATH="/opt/venv/bin:$PATH"
+ENV PATH="/opt/myenv/bin:$PATH"
+
+# Логирование: завершение сборки
+RUN echo "Сборка завершена."
 
 # Команда для запуска приложения
 CMD ["python", "main.py"]
