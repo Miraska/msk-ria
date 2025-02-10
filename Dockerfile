@@ -26,4 +26,4 @@ COPY . .
 RUN echo "Сборка завершена."
 
 # Команда для запуска приложения
-CMD ["/myenv/bin/python", "main.py"]  # Для Linux
+CMD ["/myenv/bin/python", "main.py"] 
