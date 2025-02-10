@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Установка зависимостей для tesseract
 RUN apt-get update && apt-get install -y \
-    tesseract-ocr \
+    tesseract-ocr
 
 # Копирование виртуального окружения
 COPY myenv /myenv
