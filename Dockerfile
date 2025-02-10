@@ -6,8 +6,8 @@ WORKDIR /app
 # Копирование виртуального окружения
 COPY myenv /myenv
 
-# Копируем исполнимый файл Python из официального образа в директорию /myenv/bin/
-RUN cp /usr/local/bin/python /myenv/bin/python
+# Создаем директорию, если она не существует, и копируем исполнимый файл Python
+RUN mkdir -p /myenv/bin && cp /usr/local/bin/python /myenv/bin/python
 
 # Устанавливаем переменные окружения для использования виртуального окружения
 ENV VIRTUAL_ENV="/myenv"
