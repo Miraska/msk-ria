@@ -7,11 +7,11 @@ WORKDIR /app
 COPY myenv /myenv
 
 # Установка переменной окружения для использования виртуального окружения
-ENV PATH="/myenv/scripts:$PATH"
+ENV PATH="/myenv/Scripts:$PATH"
 
 # Активация виртуального окружения и проверка
 RUN echo "Активация виртуального окружения..." && \
-    . /myenv/scripts/activate && \
+    . /myenv/Scripts/activate && \
     echo "Виртуальное окружение активировано." && \
     echo "Проверка Python и pip:" && \
     python --version && \
