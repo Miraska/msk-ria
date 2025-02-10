@@ -19,4 +19,4 @@ COPY . .
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Команда для запуска приложения
-CMD ["python", "your_app.py"]
+CMD ["python", "main.py"]
