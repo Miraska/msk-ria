@@ -201,7 +201,7 @@ def download_image(image_url):
     Загружает изображение по URL, игнорируя SSL-ошибки.
     """
     try:
-        response = requests.get(image_url, timeout=10, verify=False)
+        response = request.get(image_url, timeout=10, verify=False)
         response.raise_for_status()  # Проверяем, что статус 200 OK
         return response.content
     except requests.exceptions.RequestException as e:
