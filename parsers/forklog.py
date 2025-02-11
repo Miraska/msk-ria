@@ -16,7 +16,7 @@ from utils import (
     get_wordpress_post_url,
 )
 
-RSS_FEED_URL = "https://rss.app/feeds/S28qsnkYlyfIFMuA.xml"  # Ссылка создана на сайте rss.app так как rss недоступен на forklog
+RSS_FEED_URL = "https://forklog.com/feed" 
 
 
 def parse_page(url):
