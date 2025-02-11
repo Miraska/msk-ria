@@ -13,6 +13,12 @@ import time
 import asyncio
 import logging
 
+# Настройка прокси с авторизацией
+PROXY = {
+    "http": "http://user215587:rfqa06@163.5.39.69:2966",
+    "https": "http://user215587:rfqa06@163.5.39.69:2966",
+}
+
 # Настройка логирования
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -71,7 +77,7 @@ def fetch_rss(rss_url):
         "Connection": "keep-alive",
     }
     logging.info(f"Загружаем RSS с URL: {rss_url}")
-    response = requests.get(rss_url, headers=headers)
+    response = requests.get(rss_url, headers=headers, proxies=PROXY)
     time.sleep(1)
     if response.status_code != 200:
         logging.error(f"Ошибка загрузки RSS: {response.status_code}")
@@ -231,7 +237,7 @@ def upload_image_to_wordpress(image_path):
             image_name = image_path.split("/")[-1]  # Имя файла
         else:
             # Загружаем изображение из URL
-            response = requests.get(image_path)
+            response = requests.get(image_path, proxies=PROXY)
             if response.status_code != 200:
                 logging.error(f"Ошибка загрузки изображения: {response.status_code}")
                 return None, None
@@ -252,11 +258,12 @@ def upload_image_to_wordpress(image_path):
         logging.error(f"Ошибка загрузки изображения в WordPress: {e}")
         return None, None
 
+
 def check_and_crop_image(image_url):
     """Проверка изображения на наличие слова 'Reuters' и обрезка на 10% сверху и снизу"""
     try:
         # Загрузка изображения
-        # response = requests.get(image_url)
+        # response = requests.get(image_url, proxies=PROXY)
         # image = Image.open(BytesIO(response.content))
 
         # # Распознавание текста на изображении
