@@ -70,7 +70,7 @@ def fetch_rss(rss_url):
     }
 
     try:
-        response = http.requests('GET', rss_url, headers=headers, timeout=10)
+        response = http.request('GET', rss_url, headers=headers, timeout=10)
         
         if response.status != 200:
             logger.error(f"Ошибка загрузки RSS: {response.status}")
