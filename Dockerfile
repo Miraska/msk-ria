@@ -14,9 +14,8 @@ RUN apt-get update && apt-get install -y \
     libwebp-dev \
     libssl-dev \
     openssl \
-    && pip install --upgrade pip \
-    && pip install --upgrade urllib3 requests \
-    && tee /app/install_deps.log
+    urllib3 \
+    ca-certificates | tee /app/install_deps.log
 
 # Копирование виртуального окружения
 COPY myenv /myenv
@@ -34,7 +33,7 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
     /myenv/Scripts/python get-pip.py | tee /app/get_pip.log && \
     rm get-pip.py
 
-# Проверка доступных исполнимых файлов
+# Проверяем, что используется Python из виртуального окружения
 RUN echo "Проверка доступных исполнимых файлов:" && \
     ls -l /usr/local/bin/ | tee -a /app/docker_build.log && \
     echo "Проверка директории виртуального окружения:" && \
@@ -44,12 +43,17 @@ RUN echo "Проверка доступных исполнимых файлов:
     echo "Список установленных пакетов:" && \
     python -m pip list | tee -a /app/docker_build.log
 
-# Копирование остальных файлов проекта
+# Копируем остальные файлы проекта
 COPY . .
 
 # Очистка кеша перед запуском
 RUN find . -name "*.pyc" -delete && \
     find . -name "__pycache__" -delete | tee -a /app/docker_build.log
+
+# Определяем директорию для установки пакетов и сохраняем ее в переменную
+RUN SITE_PATH=$(python -c "import site; import sys; print(site.getsitepackages()[0])") && \
+    echo "Site Packages Path: $SITE_PATH" | tee -a /app/docker_build.log && \
+    cp -r /myenv/Lib/site-packages/* $SITE_PATH/ | tee -a /app/docker_build.log
 
 # Логирование завершения сборки
 RUN echo "Сборка завершена." | tee -a /app/docker_build.log
