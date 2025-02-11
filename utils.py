@@ -1,5 +1,5 @@
 import sqlite3
-import requests
+import urllib3
 import xml.etree.ElementTree as ET
 from config import DB_NAME, WP_URL, WP_USERNAME, WP_PASSWORD, openai_api_key
 from wordpress_xmlrpc import Client, WordPressPost
@@ -9,8 +9,6 @@ from wordpress_xmlrpc.methods.posts import GetPost
 from wordpress_xmlrpc.methods.taxonomies import GetTerms
 import re
 import time
-import asyncio
-import ssl
 import logging
 
 # Настройка логирования
@@ -19,9 +17,11 @@ logger = logging.getLogger(__name__)
 
 wp_client = Client(WP_URL, WP_USERNAME, WP_PASSWORD)
 
-# Создаём SSL-контекст с поддержкой TLSv1.2
-ssl_context = ssl.create_default_context()
-ssl_context.set_ciphers('DEFAULT@SECLEVEL=1')
+# Создание объекта PoolManager с отключенной проверкой сертификатов
+http = urllib3.PoolManager(
+    cert_reqs='CERT_NONE',  # Отключаем проверку сертификатов
+    assert_hostname=False    # Отключаем проверку хоста
+)
 
 def setup_database():
     """Создание таблицы для хранения обработанных статей"""
@@ -65,27 +65,32 @@ def fetch_rss(rss_url):
         "Accept-Language": "en-US,en;q=0.5",
         "Connection": "keep-alive",
     }
-    response = requests.get(rss_url, headers=headers)
-    time.sleep(1)
-    if response.status_code != 200:
-        logger.error(f"Ошибка загрузки RSS: {response.status_code}")
+
+    try:
+        response = http.request('GET', rss_url, headers=headers, timeout=10)
+        
+        if response.status != 200:
+            logger.error(f"Ошибка загрузки RSS: {response.status}")
+            return []
+
+        root = ET.fromstring(response.data)
+
+        return [
+            {
+                "title": item.find("title").text,
+                "link": item.find("link").text,
+                "enclosure": (
+                    item.find("enclosure").attrib.get("url")
+                    if item.find("enclosure") is not None
+                    else None
+                ),
+                "pubDate": item.find("pubDate").text,
+            }
+            for item in root.findall(".//item")
+        ]
+    except Exception as e:
+        logger.error(f"Ошибка получения RSS: {e}")
         return []
-
-    root = ET.fromstring(response.content)
-
-    return [
-        {
-            "title": item.find("title").text,
-            "link": item.find("link").text,
-            "enclosure": (
-                item.find("enclosure").attrib.get("url")
-                if item.find("enclosure") is not None
-                else None
-            ),
-            "pubDate": item.find("pubDate").text,
-        }
-        for item in root.findall(".//item")
-    ]
 
 def clean_text(content):
     """Очищает текст от ненужных элементов"""
@@ -191,19 +196,18 @@ def get_category_id_by_name(category_name):
 
 def download_image(image_url):
     """
-    Загружает изображение по URL с принудительным TLSv1.2.
+    Загружает изображение по URL с использованием urllib3 для работы с SSL.
     Возвращает байты изображения, если загрузка успешна, иначе None.
     """
     try:
-        session = requests.Session()
-        adapter = requests.adapters.HTTPAdapter()
-        session.mount('https://', adapter)
-        
-        response = session.get(image_url, timeout=10)
-        response.raise_for_status()
+        response = http.request('GET', image_url, timeout=10)
 
-        return response.content  # Возвращаем байты изображения
-    except requests.exceptions.RequestException as e:
+        if response.status != 200:
+            logger.error(f"Ошибка загрузки изображения: {response.status}")
+            return None
+        
+        return response.data  # Возвращаем байты изображения
+    except Exception as e:
         logger.error(f"Ошибка загрузки изображения: {e}")
         return None
 
