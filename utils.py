@@ -6,18 +6,16 @@ from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods.posts import NewPost
 from wordpress_xmlrpc.methods.media import UploadFile
 from wordpress_xmlrpc.methods.posts import GetPost
-from wordpress_xmlrpc.methods.posts import NewPost
 from wordpress_xmlrpc.methods.taxonomies import GetTerms
 import re
 import time
 import asyncio
 import ssl
+import logging
 
-# Для обрезки фото
-# from PIL import Image
-# import pytesseract
-import requests
-from io import BytesIO
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 wp_client = Client(WP_URL, WP_USERNAME, WP_PASSWORD)
 
@@ -40,7 +38,6 @@ def setup_database():
     conn.commit()
     conn.close()
 
-
 def is_article_processed(link):
     """Проверка, была ли статья уже обработана"""
     conn = sqlite3.connect(DB_NAME)
@@ -49,7 +46,6 @@ def is_article_processed(link):
     result = cursor.fetchone()
     conn.close()
     return result is not None
-
 
 def mark_article_as_processed(link):
     """Пометка статьи как обработанной"""
@@ -60,7 +56,6 @@ def mark_article_as_processed(link):
     )
     conn.commit()
     conn.close()
-
 
 def fetch_rss(rss_url):
     """Получение и разбор RSS"""
@@ -73,7 +68,7 @@ def fetch_rss(rss_url):
     response = requests.get(rss_url, headers=headers)
     time.sleep(1)
     if response.status_code != 200:
-        print(f"[ERROR] Ошибка загрузки RSS: {response.status_code}")
+        logger.error(f"Ошибка загрузки RSS: {response.status_code}")
         return []
 
     root = ET.fromstring(response.content)
@@ -92,13 +87,8 @@ def fetch_rss(rss_url):
         for item in root.findall(".//item")
     ]
 
-
 def clean_text(content):
-    """
-    Убирает первое предложение:
-    - Заканчивающееся на 'РИА Новости'.
-    - Формата 'ГОРОД, дата (Рейтер) —'.
-    """
+    """Очищает текст от ненужных элементов"""
     match_ria = re.match(r"^[^.!?]*?РИА Новости[.!?]", content)
     if match_ria:
         content = content[match_ria.end() :].strip()
@@ -111,18 +101,13 @@ def clean_text(content):
 
     return content
 
-
 def clean_title(title):
-    """
-    Очищает заголовки:
-    - Убирает кавычки
-    """
+    """Очищает заголовки"""
     title = title.replace("Заголовок: ", "").strip()
     title = title.replace("**Заголовок:**", "").strip()
     title = title.replace("**", "").strip()
     title = title.replace('"', "").replace("'", "").strip()
     return title
-
 
 def rewrite_text(text, prompt):
     import openai
@@ -132,22 +117,54 @@ def rewrite_text(text, prompt):
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4o-mini-2024-07-18",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": f"{prompt}\n\n{text}"},
-            ],
+            messages=[{"role": "system", "content": "You are a helpful assistant."},
+                      {"role": "user", "content": f"{prompt}\n\n{text}"}]
         )
         return response["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        print(f"[ERROR] Ошибка рерайта текста: {e}")
+        logger.error(f"Ошибка рерайта текста: {e}")
         return text
-
 
 def generate_meta(title, content):
     """Генерация SEO мета-тегов"""
     meta_title = rewrite_text(title, "Создай короткий SEO-заголовок:")
     meta_description = rewrite_text(content, "Создай описание длиной до 160 символов:")
     return meta_title, meta_description
+
+# Публикация поста с отлавливанием ошибок
+def publish_to_wordpress(title, content, meta_title, meta_description, category=None, image_url=None):
+    post = WordPressPost()
+    post.title = title
+    post.content = content
+    post.post_status = "publish"
+    post.custom_fields = [
+        {"key": "_yoast_wpseo_title", "value": meta_title},
+        {"key": "_yoast_wpseo_metadesc", "value": meta_description},
+    ]
+
+    if image_url:
+        image_id, _ = upload_image_to_wordpress(image_url)
+        if image_id:
+            post.thumbnail = image_id
+    else:
+        logger.warning("Статья не опубликована из-за отсутствия изображения")
+        return
+
+    if category:
+        category_id = get_category_id_by_name(category)
+        if category_id:
+            post.terms_names = {"category": [category]}  # Указываем категорию
+        else:
+            logger.warning(f"Категория '{category}' не будет добавлена к посту.")
+            return
+
+    try:
+        post_id = wp_client.call(NewPost(post))
+        logger.info(f"Статья '{title}' успешно опубликована. ID: {post_id}")
+        return post_id
+    except Exception as e:
+        logger.error(f"Ошибка публикации статьи: {e}")
+        return None
 
 def get_wordpress_post_url(post_id):
     """
@@ -157,9 +174,8 @@ def get_wordpress_post_url(post_id):
         post = wp_client.call(GetPost(post_id))
         return post.link
     except Exception as e:
-        print(f"[ERROR] Не удалось получить URL поста: {e}")
+        logger.error(f"Не удалось получить URL поста: {e}")
         return None
-
 
 def get_category_id_by_name(category_name):
     """Получает ID категории по её названию."""
@@ -170,50 +186,8 @@ def get_category_id_by_name(category_name):
                 return category.id
         return None
     except Exception as e:
-        print(f"[ERROR] Ошибка при получении категории: {e}")
+        logger.error(f"Ошибка при получении категории: {e}")
         return None
-
-
-def publish_to_wordpress(
-    title, content, meta_title, meta_description, category=None, image_url=None
-):
-    """Публикация на WordPress"""
-    post = WordPressPost()
-    post.title = title
-    post.content = content
-    post.post_status = "publish"
-    post.custom_fields = [
-        {"key": "_yoast_wpseo_title", "value": meta_title},
-        {"key": "_yoast_wpseo_metadesc", "value": meta_description},
-    ]
-
-    # Добавление изображения, если оно указано
-    if image_url:
-        image_id, _ = upload_image_to_wordpress(image_url)
-        if image_id:
-            post.thumbnail = image_id
-    else:
-        print(f"[WARNING] Статья не опубликована из-за отсутствия изображения")
-        return
-
-    # Добавление категории, если она указана
-    if category:
-        category_id = get_category_id_by_name(category)
-        if category_id:
-            post.terms_names = {"category": [category]}  # Указываем категорию
-        else:
-            print(f"[WARNING] Категория '{category}' не будет добавлена к посту.")
-            return
-
-    # Публикация поста
-    try:
-        post_id = wp_client.call(NewPost(post))
-        print(f"Статья '{title}' успешно опубликована. ID: {post_id}")
-        return post_id
-    except Exception as e:
-        print(f"[ERROR] Ошибка публикации статьи: {e}")
-        return None
-
 
 def download_image(image_url):
     """
@@ -230,7 +204,7 @@ def download_image(image_url):
 
         return response.content  # Возвращаем байты изображения
     except requests.exceptions.RequestException as e:
-        print(f"[ERROR] Ошибка загрузки изображения: {e}")
+        logger.error(f"Ошибка загрузки изображения: {e}")
         return None
 
 def upload_image_to_wordpress(image_url):
@@ -242,7 +216,7 @@ def upload_image_to_wordpress(image_url):
         img_data = download_image(image_url)
 
         if not img_data:
-            print("[ERROR] Не удалось загрузить изображение, отмена публикации.")
+            logger.error("Не удалось загрузить изображение, отмена публикации.")
             return None, None
 
         image_name = image_url.split("/")[-1]  # Извлекаем имя файла
@@ -254,41 +228,19 @@ def upload_image_to_wordpress(image_url):
 
         # Загрузка изображения в WordPress
         upload_response = wp_client.call(UploadFile(image_data))
-        print(f"[INFO] Изображение '{image_name}' успешно загружено в WordPress: {upload_response['url']}")
+        logger.info(f"Изображение '{image_name}' успешно загружено в WordPress: {upload_response['url']}")
         
         return upload_response["id"], upload_response["url"]
     
     except Exception as e:
-        print(f"[ERROR] Ошибка загрузки изображения в WordPress: {e}")
+        logger.error(f"Ошибка загрузки изображения в WordPress: {e}")
         return None, None
 
 def check_and_crop_image(image_url):
     """Проверка изображения на наличие слова 'Reuters' и обрезка на 10% сверху и снизу"""
     try:
-        # Загрузка изображения
-        # response = requests.get(image_url)
-        # image = Image.open(BytesIO(response.content))
-
-        # # Распознавание текста на изображении
-        # text = pytesseract.image_to_string(image)
-
-        # # Проверка на наличие слова 'Reuters'
-        # if 'REUTERS' in text:
-        #     print("[DEBUG] На изображении найдено слово 'Reuters'. Обрезка изображения...")
-        #     width, height = image.size
-        #     crop_height = int(height * 0.15)  # 10% от высоты изображения
-
-        #     # Обрезка изображения на 10% сверху и снизу
-        #     cropped_image = image.crop((0, crop_height, width, height - crop_height))
-
-        #     # Сохранение обрезанного изображения во временный файл
-        #     cropped_image_path = "cropped_image.jpg"
-        #     cropped_image.save(cropped_image_path)
-
-        #     return cropped_image_path
-        # else:
-            return image_url
-
+        # Здесь вы можете раскомментировать код для обработки изображений, если это необходимо.
+        return image_url
     except Exception as e:
-        print(f"[ERROR] Ошибка при обработке изображения: {e}")
+        logger.error(f"Ошибка при обработке изображения: {e}")
         return image_url
