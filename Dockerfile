@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y \
     libtiff-dev \
     libwebp-dev \
     libssl-dev \
-    openssl | tee /app/install_deps.log
+    openssl \
+    ca-certificates | tee /app/install_deps.log
 
 # Копирование виртуального окружения
 COPY myenv /myenv
