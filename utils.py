@@ -11,6 +11,7 @@ from wordpress_xmlrpc.methods.taxonomies import GetTerms
 import re
 import time
 import logging
+import requests
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -69,7 +70,7 @@ def fetch_rss(rss_url):
     }
 
     try:
-        response = http.request('GET', rss_url, headers=headers, timeout=10)
+        response = http.requests('GET', rss_url, headers=headers, timeout=10)
         
         if response.status != 200:
             logger.error(f"Ошибка загрузки RSS: {response.status}")
@@ -201,7 +202,7 @@ def download_image(image_url):
     Загружает изображение по URL, игнорируя SSL-ошибки.
     """
     try:
-        response = request.get(image_url, timeout=10, verify=False)
+        response = requests.get(image_url, timeout=10, verify=False)
         response.raise_for_status()  # Проверяем, что статус 200 OK
         return response.content
     except requests.exceptions.RequestException as e:
