@@ -11,6 +11,7 @@ from wordpress_xmlrpc.methods.taxonomies import GetTerms
 import re
 import time
 import asyncio
+import ssl
 
 # Для обрезки фото
 # from PIL import Image
