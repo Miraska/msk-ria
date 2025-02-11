@@ -26,7 +26,7 @@ def parse_page(url):
         "Accept-Language": "en-US,en;q=0.5",
         "Connection": "keep-alive",
     }
-    response = requests.get(url, headers=headers, verify=False)
+    response = requests.get(url, headers=headers)
     if response.status_code != 200:
         print(
             f"[ERROR] Ошибка загрузки страницы со статусом {response.status_code}: {url}"
