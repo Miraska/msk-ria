@@ -149,6 +149,17 @@ def generate_meta(title, content):
     meta_description = rewrite_text(content, "Создай описание длиной до 160 символов:")
     return meta_title, meta_description
 
+def get_wordpress_post_url(post_id):
+    """
+    Получение URL опубликованного поста по его ID.
+    """
+    try:
+        post = wp_client.call(GetPost(post_id))
+        return post.link
+    except Exception as e:
+        print(f"[ERROR] Не удалось получить URL поста: {e}")
+        return None
+
 
 def get_category_id_by_name(category_name):
     """Получает ID категории по её названию."""
