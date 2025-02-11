@@ -6,7 +6,7 @@ from utils import setup_database
 
 setup_database()
 
-PARSERS = [ria]
+PARSERS = [ria, moscowtimes, habr, stopgame, championat, forklog]
 
 # def process_all_parsers():
 #     """Запускает обработку для всех парсеров"""
@@ -80,7 +80,7 @@ def scheduled_task():
 
 
 # Настройка расписания
-# process_all_parsers()
+process_all_parsers()
 schedule.every(2).hours.do(scheduled_task)
 
 print("Запуск мониторинга RSS...\n")
