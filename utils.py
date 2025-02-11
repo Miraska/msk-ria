@@ -20,6 +20,9 @@ from io import BytesIO
 
 wp_client = Client(WP_URL, WP_USERNAME, WP_PASSWORD)
 
+# Создаём SSL-контекст с поддержкой TLSv1.2
+ssl_context = ssl.create_default_context()
+ssl_context.set_ciphers('DEFAULT@SECLEVEL=1')
 
 def setup_database():
     """Создание таблицы для хранения обработанных статей"""
@@ -200,49 +203,49 @@ def publish_to_wordpress(
         return None
 
 
-def get_wordpress_post_url(post_id):
+def download_image(image_url):
     """
-    Получение URL опубликованного поста по его ID.
+    Загружает изображение по URL с принудительным TLSv1.2.
+    Возвращает байты изображения, если загрузка успешна, иначе None.
     """
     try:
-        post = wp_client.call(GetPost(post_id))
-        return post.link
-    except Exception as e:
-        print(f"[ERROR] Не удалось получить URL поста: {e}")
+        session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter()
+        session.mount('https://', adapter)
+        
+        response = session.get(image_url, timeout=10)
+        response.raise_for_status()
+
+        return response.content  # Возвращаем байты изображения
+    except requests.exceptions.RequestException as e:
+        print(f"[ERROR] Ошибка загрузки изображения: {e}")
         return None
 
-
-def upload_image_to_wordpress(image_path):
-    """Загрузка изображения на WordPress"""
+def upload_image_to_wordpress(image_url):
+    """
+    Загружает изображение в WordPress.
+    Возвращает ID изображения и его URL, если успешно.
+    """
     try:
-        if not image_path:
-            print("[DEBUG] Нет изображения для загрузки.")
+        img_data = download_image(image_url)
+
+        if not img_data:
+            print("[ERROR] Не удалось загрузить изображение, отмена публикации.")
             return None, None
 
-        # Если передан локальный путь, читаем файл
-        if not image_path.startswith("http"):
-            with open(image_path, "rb") as img_file:
-                image_bits = img_file.read()
-            image_name = image_path.split("/")[-1]  # Имя файла
-        else:
-            # Загружаем изображение из URL
-            response = requests.get(image_path)
-            if response.status_code != 200:
-                print(f"[ERROR] Ошибка загрузки изображения: {response.status_code}")
-                return None, None
-            image_bits = response.content
-            image_name = image_path.split("/")[-1]
-
+        image_name = image_url.split("/")[-1]  # Извлекаем имя файла
         image_data = {
             "name": image_name,
             "type": "image/jpeg",
-            "bits": image_bits,
+            "bits": img_data,
         }
 
         # Загрузка изображения в WordPress
         upload_response = wp_client.call(UploadFile(image_data))
+        print(f"[INFO] Изображение '{image_name}' успешно загружено в WordPress: {upload_response['url']}")
+        
         return upload_response["id"], upload_response["url"]
-
+    
     except Exception as e:
         print(f"[ERROR] Ошибка загрузки изображения в WordPress: {e}")
         return None, None
