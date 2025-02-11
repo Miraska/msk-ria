@@ -1,5 +1,6 @@
 import sqlite3
 import urllib3
+from urllib3.exceptions import InsecureRequestWarning
 import xml.etree.ElementTree as ET
 from config import DB_NAME, WP_URL, WP_USERNAME, WP_PASSWORD, openai_api_key
 from wordpress_xmlrpc import Client, WordPressPost
@@ -22,6 +23,7 @@ http = urllib3.PoolManager(
     cert_reqs='CERT_NONE',  # Отключаем проверку сертификатов
     assert_hostname=False    # Отключаем проверку хоста
 )
+urllib3.disable_warnings(InsecureRequestWarning)
 
 def setup_database():
     """Создание таблицы для хранения обработанных статей"""
@@ -200,7 +202,7 @@ def download_image(image_url):
     Возвращает байты изображения, если загрузка успешна, иначе None.
     """
     try:
-        response = http.request('GET', image_url, timeout=10)
+        response = http.request('GET', image_url,verify=False, timeout=10)
 
         if response.status != 200:
             logger.error(f"Ошибка загрузки изображения: {response.status}")
