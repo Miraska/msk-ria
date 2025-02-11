@@ -33,6 +33,7 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
 # Устанавливаем OpenSSL и настраиваем сертификаты
 RUN python -m pip install --upgrade pip && \
     python -m pip install pyOpenSSL certifi && \
+    python -m pip install ssl && \
     export SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())") && \
     echo "SSL_CERT_FILE=${SSL_CERT_FILE}" >> /etc/environment
 
