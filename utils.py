@@ -198,21 +198,15 @@ def get_category_id_by_name(category_name):
 
 def download_image(image_url):
     """
-    Загружает изображение по URL с использованием urllib3 для работы с SSL.
-    Возвращает байты изображения, если загрузка успешна, иначе None.
+    Загружает изображение по URL, игнорируя SSL-ошибки.
     """
     try:
-        response = http.request('GET', image_url,verify=False, timeout=10)
-
-        if response.status != 200:
-            logger.error(f"Ошибка загрузки изображения: {response.status}")
-            return None
-        
-        return response.data  # Возвращаем байты изображения
-    except Exception as e:
+        response = requests.get(image_url, timeout=10, verify=False)
+        response.raise_for_status()  # Проверяем, что статус 200 OK
+        return response.content
+    except requests.exceptions.RequestException as e:
         logger.error(f"Ошибка загрузки изображения: {e}")
         return None
-
 def upload_image_to_wordpress(image_url):
     """
     Загружает изображение в WordPress.
