@@ -19,6 +19,8 @@ PROXY = {
     "https": "http://user215587:rfqa06@163.5.39.69:2966",
 }
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 # Настройка логирования
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
