@@ -169,6 +169,46 @@ def get_category_id_by_name(category_name):
         logging.error(f"Ошибка при получении категории: {e}")
         return None
 
+def publish_to_wordpress(
+    title, content, meta_title, meta_description, category=None, image_url=None
+):
+    """Публикация на WordPress"""
+    post = WordPressPost()
+    post.title = title
+    post.content = content
+    post.post_status = "publish"
+    post.custom_fields = [
+        {"key": "_yoast_wpseo_title", "value": meta_title},
+        {"key": "_yoast_wpseo_metadesc", "value": meta_description},
+    ]
+
+    # Добавление изображения, если оно указано
+    if image_url:
+        image_id, _ = upload_image_to_wordpress(image_url)
+        if image_id:
+            post.thumbnail = image_id
+    else:
+        logging.warning("Статья не опубликована из-за отсутствия изображения.")
+        return
+
+    # Добавление категории, если она указана
+    if category:
+        category_id = get_category_id_by_name(category)
+        if category_id:
+            post.terms_names = {"category": [category]}  # Указываем категорию
+        else:
+            logging.warning(f"Категория '{category}' не будет добавлена к посту.")
+            return
+
+    # Публикация поста
+    try:
+        post_id = wp_client.call(NewPost(post))
+        logging.info(f"Статья '{title}' успешно опубликована. ID: {post_id}")
+        return post_id
+    except Exception as e:
+        logging.error(f"Ошибка публикации статьи: {e}")
+        return None
+
 
 def upload_image_to_wordpress(image_path):
     """Загрузка изображения на WordPress через прокси"""
@@ -221,43 +261,6 @@ def get_wordpress_post_url(post_id):
     except Exception as e:
         logging.error(f"Не удалось получить URL поста: {e}")
         return None
-
-
-def upload_image_to_wordpress(image_path):
-    """Загрузка изображения на WordPress"""
-    try:
-        if not image_path:
-            logging.debug("Нет изображения для загрузки.")
-            return None, None
-
-        # Если передан локальный путь, читаем файл
-        if not image_path.startswith("http"):
-            with open(image_path, "rb") as img_file:
-                image_bits = img_file.read()
-            image_name = image_path.split("/")[-1]  # Имя файла
-        else:
-            # Загружаем изображение из URL
-            response = requests.get(image_path, proxies=PROXY)
-            if response.status_code != 200:
-                logging.error(f"Ошибка загрузки изображения: {response.status_code}")
-                return None, None
-            image_bits = response.content
-            image_name = image_path.split("/")[-1]
-
-        image_data = {
-            "name": image_name,
-            "type": "image/jpeg",
-            "bits": image_bits,
-        }
-
-        # Загрузка изображения в WordPress
-        upload_response = wp_client.call(UploadFile(image_data))
-        return upload_response["id"], upload_response["url"]
-
-    except Exception as e:
-        logging.error(f"Ошибка загрузки изображения в WordPress: {e}")
-        return None, None
-
 
 def check_and_crop_image(image_url):
     """Проверка изображения на наличие слова 'Reuters' и обрезка на 10% сверху и снизу"""
