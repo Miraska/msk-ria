@@ -199,15 +199,18 @@ def get_category_id_by_name(category_name):
 
 def download_image(image_url):
     """
-    Загружает изображение по URL, игнорируя SSL-ошибки.
+    Загружает изображение по URL с проверкой SSL.
     """
     try:
-        response = requests.get(image_url, timeout=10, verify=False)
-        response.raise_for_status()  # Проверяем, что статус 200 OK
+        response = requests.get(image_url, timeout=10, verify=True)  # Включаем SSL
+        response.raise_for_status()
         return response.content
+    except requests.exceptions.SSLError:
+        logger.error(f"Ошибка SSL при загрузке изображения: {image_url}")
     except requests.exceptions.RequestException as e:
         logger.error(f"Ошибка загрузки изображения: {e}")
-        return None
+    return None
+
 def upload_image_to_wordpress(image_url):
     """
     Загружает изображение в WordPress.
