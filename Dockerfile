@@ -44,6 +44,11 @@ RUN echo "Проверка доступных исполнимых файлов:
 # Копируем остальные файлы проекта
 COPY . .
 
+# Очистка кеша перед запуском
+RUN find . -name "*.pyc" -delete && \
+    find . -name "__pycache__" -delete
+
+
 # Определяем директорию для установки пакетов и сохраняем ее в переменную
 RUN SITE_PATH=$(python -c "import site; import sys; print(site.getsitepackages()[0])") && \
     echo "Site Packages Path: $SITE_PATH" && \
