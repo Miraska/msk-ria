@@ -55,7 +55,7 @@ RUN SITE_PATH=$(python -c "import site; import sys; print(site.getsitepackages()
     cp -r /myenv/Lib/site-packages/* $SITE_PATH/
 
 # Логирование завершения сборки
-RUN echo "Сборка завершена."
+RUN echo "Сборка завершена." | tee -a /app/docker_build.log
 
 # Команда для запуска приложения
 CMD ["/myenv/Scripts/python", "main.py"]
