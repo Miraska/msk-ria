@@ -12,6 +12,7 @@ import re
 import time
 import asyncio
 import logging
+import urllib3
 
 # Настройка прокси с авторизацией
 PROXY = {
