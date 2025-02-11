@@ -3,7 +3,7 @@ FROM python:3.11.1
 # Установка рабочей директории
 WORKDIR /app
 
-# Установка зависимостей для tesseract и SSL
+# Устанавливаем системные библиотеки, включая SSL и Tesseract OCR
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     liblcms2-dev \
@@ -14,11 +14,18 @@ RUN apt-get update && apt-get install -y \
     libwebp-dev \
     libssl-dev \
     openssl \
-    urllib3 \
-    ca-certificates | tee /app/install_deps.log
+    ca-certificates && \
+    update-ca-certificates | tee /app/install_deps.log
 
 # Копирование виртуального окружения
 COPY myenv /myenv
+
+# Указываем Python путь к SSL-сертификатам
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
+# Тестируем, что SSL работает
+RUN python -c "import ssl; print(ssl.get_default_verify_paths())"
 
 # Создаем директорию, если она не существует, и копируем исполнимый файл Python
 RUN mkdir -p /myenv/Scripts && cp /usr/local/bin/python /myenv/Scripts/python
