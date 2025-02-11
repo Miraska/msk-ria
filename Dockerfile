@@ -3,7 +3,7 @@ FROM python:3.11.1
 # Установка рабочей директории
 WORKDIR /app
 
-# Установка зависимостей для tesseract
+# Установка зависимостей для Tesseract и SSL
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     liblcms2-dev \
@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     libfreetype6-dev \
     libtiff-dev \
-    libwebp-dev
+    libwebp-dev \
+    libssl-dev
 
 # Копирование виртуального окружения
 COPY myenv /myenv
@@ -28,6 +29,12 @@ ENV PATH="/myenv/bin:$PATH"
 RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
     /myenv/Scripts/python get-pip.py && \
     rm get-pip.py
+
+# Устанавливаем OpenSSL и настраиваем сертификаты
+RUN python -m pip install --upgrade pip && \
+    python -m pip install pyOpenSSL certifi && \
+    export SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())") && \
+    echo "SSL_CERT_FILE=${SSL_CERT_FILE}" >> /etc/environment
 
 # Проверяем, что используется Python из виртуального окружения
 RUN echo "Проверка доступных исполнимых файлов:" && \
