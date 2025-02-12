@@ -1,8 +1,9 @@
-import requests
-from bs4 import BeautifulSoup
-from telegram_bot import send_report
 import asyncio
 import random
+from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright  # Синхронный API Playwright
+from telegram_bot import send_report
+
 from utils import (
     fetch_rss,
     is_article_processed,
@@ -16,62 +17,71 @@ from utils import (
     check_and_crop_image
 )
 
-# 1) Объявляем прокси
-PROXY = {
-    "http": "http://user215587:rfqa06@163.5.39.69:2966",
-    "https": "http://user215587:rfqa06@163.5.39.69:2966",
+# Если хотите подключить прокси:
+PLAYWRIGHT_PROXY = {
+    "server": "http://163.5.39.69:2966",
+    "username": "user215587",
+    "password": "rfqa06"
 }
 
 RSS_FEED_URL = "https://www.moscowtimes.ru/rss/news"
 
 
 def parse_page(url):
-    """Парсинг страницы The Moscow Times"""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Connection": "keep-alive",
-    }
-    # 2) Передаём proxies=PROXY
-    response = requests.get(url, headers=headers, proxies=PROXY)
-    if response.status_code != 200:
-        print(f"[ERROR] Ошибка загрузки страницы: {url}")
-        return None
+    """
+    Парсинг страницы The Moscow Times при помощи Playwright.
+    Возвращает (title, content, image_url), как и раньше.
+    """
+    # Создаём контекст Playwright в синхронном режиме
+    with sync_playwright() as p:
+        # Запускаем Chromium (headless=True – без граф. интерфейса)
+        # Если нужна прокси — передаём её в параметр `proxy`.
+        browser = p.chromium.launch(
+            headless=True,
+            proxy=PLAYWRIGHT_PROXY  # Если прокси не нужен, закомментируйте эту строку
+        )
+        page = browser.new_page()
 
-    soup = BeautifulSoup(response.content, "html.parser")
+        # Переходим на страницу
+        page.goto(url, wait_until="domcontentloaded")
+        # Можно добавить небольшую задержку, если сайт грузится долго
+        # page.wait_for_timeout(3000)
 
-    title_tag = soup.find("header", class_="article__header").find("h1")
+        # Получаем HTML-код после рендеринга
+        html = page.content()
+
+        # Закрываем браузер (в рамках with-блока он закроется автоматически, но лишний раз не помешает)
+        browser.close()
+
+    # Теперь парсим полученный HTML как и раньше
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Извлекаем заголовок
+    header = soup.find("header", class_="article__header")
+    title_tag = header.find("h1") if header else None
     title = title_tag.get_text(strip=True) if title_tag else "Заголовок не найден"
 
+    # Извлекаем контент
     content_div = soup.find("div", class_="article__content")
     paragraphs = content_div.find_all("p") if content_div else []
     content = "\n\n".join(p.get_text(strip=True) for p in paragraphs)
 
+    # Извлекаем изображение
     image_tag = soup.find("figure", class_="article__featured-image")
+    image_url = None
     if image_tag and image_tag.find("img"):
         img = image_tag.find("img")
-        image_url = img.get("src")
         srcset = img.get("srcset")
         if srcset:
             image_url = srcset.split(",")[0].split(" ")[0].strip()
         else:
             image_url = img.get("src")
-    else:
-        image_url = None
 
     return title, content, image_url
 
 
 def process_rss():
     """Обработка RSS для The Moscow Times"""
-    # 3) Если внутри fetch_rss тоже используются requests.get(), 
-    #    можно добавить параметр для прокси в саму функцию fetch_rss
-    #    и передать его здесь, например:
-    #
-    # articles = fetch_rss(RSS_FEED_URL, proxies=PROXY)
-    #
-    # Но т.к. мы не видим реализацию fetch_rss, просто вызываем напрямую:
     articles = fetch_rss(RSS_FEED_URL)
     print(f"[DEBUG] Найдено {len(articles)} статей.")
 
@@ -84,6 +94,7 @@ def process_rss():
         random_article = random.choice(articles)
         link = random_article["link"]
 
+        # Проверка, не обработана ли статья ранее
         while True:
             if is_article_processed(link):
                 random_article = random.choice(articles)
@@ -92,9 +103,10 @@ def process_rss():
                 continue
             break
 
+        # Парсим страницу через Playwright
         parsed_data = parse_page(link)
         if not parsed_data:
-            return
+            return  # или continue
 
         title, raw_content, image_url = parsed_data
         print(f"[DEBUG] Заголовок статьи: {title}")
@@ -103,14 +115,16 @@ def process_rss():
         if random_article.get("enclosure"):
             image_url = random_article["enclosure"]
 
+        # Если нет изображения, пропускаем
         if not image_url:
             mark_article_as_processed(link)
             i -= 1
             continue
 
-        # Проверка и обрезка изображения
+        # Проверка и обрезка изображения (если у вас такая логика есть)
         image_url = check_and_crop_image(image_url)
 
+        # Чистим и переписываем контент
         cleaned_content = clean_text(raw_content)
 
         rewritten_title = rewrite_text(
@@ -127,8 +141,10 @@ def process_rss():
         meta_title, meta_description = generate_meta(final_title, rewritten_content)
         final_meta_title = clean_title(meta_title)
 
+        # Отмечаем как обработанную
         mark_article_as_processed(link)
 
+        # Публикуем в WordPress (остаётся прежний метод)
         post_id = publish_to_wordpress(
             final_title,
             rewritten_content,
@@ -138,9 +154,9 @@ def process_rss():
             image_url,
         )
 
+        # Проверяем результат публикации
         if post_id:
             published_link = get_wordpress_post_url(post_id)
-
             if published_link:
                 asyncio.run(
                     send_report("Moscow Times Parser", link, published_link, final_title)
