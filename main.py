@@ -5,7 +5,7 @@ from parsers import ria, moscowtimes, habr, stopgame, championat, forklog
 from utils import setup_database
 
 setup_database()
-
+print("Успешно запущено")
 PARSERS = [ria, moscowtimes, habr, stopgame, championat, forklog]
 
 # def process_all_parsers():
