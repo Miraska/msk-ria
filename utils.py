@@ -289,6 +289,3 @@ def check_and_crop_image(image_url):
     except Exception as e:
         logging.error(f"Ошибка при обработке изображения: {e}")
         return image_url
-
-
-подключи прокси чтобы работал chat gpt
