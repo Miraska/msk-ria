@@ -16,6 +16,12 @@ from utils import (
     check_and_crop_image
 )
 
+# 1) Объявляем прокси
+PROXY = {
+    "http": "http://user215587:rfqa06@163.5.39.69:2966",
+    "https": "http://user215587:rfqa06@163.5.39.69:2966",
+}
+
 RSS_FEED_URL = "https://www.moscowtimes.ru/rss/news"
 
 
@@ -27,7 +33,8 @@ def parse_page(url):
         "Accept-Language": "en-US,en;q=0.5",
         "Connection": "keep-alive",
     }
-    response = requests.get(url, headers=headers)
+    # 2) Передаём proxies=PROXY
+    response = requests.get(url, headers=headers, proxies=PROXY)
     if response.status_code != 200:
         print(f"[ERROR] Ошибка загрузки страницы: {url}")
         return None
@@ -57,7 +64,14 @@ def parse_page(url):
 
 
 def process_rss():
-    """Обработка RSS для Championat"""
+    """Обработка RSS для The Moscow Times"""
+    # 3) Если внутри fetch_rss тоже используются requests.get(), 
+    #    можно добавить параметр для прокси в саму функцию fetch_rss
+    #    и передать его здесь, например:
+    #
+    # articles = fetch_rss(RSS_FEED_URL, proxies=PROXY)
+    #
+    # Но т.к. мы не видим реализацию fetch_rss, просто вызываем напрямую:
     articles = fetch_rss(RSS_FEED_URL)
     print(f"[DEBUG] Найдено {len(articles)} статей.")
 
@@ -111,7 +125,6 @@ def process_rss():
         final_title = clean_title(rewritten_title)
 
         meta_title, meta_description = generate_meta(final_title, rewritten_content)
-
         final_meta_title = clean_title(meta_title)
 
         mark_article_as_processed(link)

@@ -16,7 +16,13 @@ from utils import (
     get_wordpress_post_url,
 )
 
-RSS_FEED_URL = "https://forklog.com/feed" 
+# Объявляем прокси (пример)
+PROXY = {
+    "http": "http://user215587:rfqa06@163.5.39.69:2966",
+    "https": "http://user215587:rfqa06@163.5.39.69:2966",
+}
+
+RSS_FEED_URL = "https://forklog.com/feed"
 
 
 def parse_page(url):
@@ -27,8 +33,11 @@ def parse_page(url):
         "Accept-Language": "en-US,en;q=0.5",
         "Connection": "keep-alive",
     }
-    response = requests.get(url, headers=headers)
-    time.sleep(3)
+    # Используем прокси при запросе
+    response = requests.get(url, headers=headers, proxies=PROXY)
+    
+    time.sleep(3)  # Искусственная задержка, если нужна
+
     if response.status_code != 200:
         print(
             f"[ERROR] Ошибка загрузки страницы со статусом {response.status_code}: {url}"
@@ -58,7 +67,11 @@ def parse_page(url):
 
 
 def process_rss():
-    """Обработка RSS для Championat"""
+    """Обработка RSS для Forklog"""
+    # Если внутри fetch_rss используются запросы requests,
+    # то его код тоже нужно доработать так, чтобы передавать proxies=PROXY.
+    # Например: articles = fetch_rss(RSS_FEED_URL, proxies=PROXY)
+    # Но здесь мы вызываем напрямую, как в вашем исходном коде.
     articles = fetch_rss(RSS_FEED_URL)
     print(f"[DEBUG] Найдено {len(articles)} статей.")
 
@@ -109,7 +122,6 @@ def process_rss():
         final_title = clean_title(rewritten_title)
 
         meta_title, meta_description = generate_meta(final_title, rewritten_content)
-
         final_meta_title = clean_title(meta_title)
 
         mark_article_as_processed(link)

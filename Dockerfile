@@ -1,9 +1,8 @@
-FROM python:3.11.1
+FROM python:3.11
 
-# Установка рабочей директории
 WORKDIR /app
 
-# Установка зависимостей для tesseract
+# Устанавливаем необходимые системные пакеты (пример)
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     liblcms2-dev \
@@ -11,47 +10,27 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     libfreetype6-dev \
     libtiff-dev \
-    libwebp-dev \
-    > /app/docker_build.log 2>&1
+    libwebp-dev
 
-# Копирование виртуального окружения
-COPY myenv /myenv
+# Создаем (или не создаем) виртуальное окружение — зависит от вашей конфигурации
+# Если вы НЕ используете venv, можете пропустить эти строки
+RUN python -m venv /venv
+ENV PATH="/venv/bin:$PATH"
+RUN pip install --upgrade pip
 
-# Создаем директорию, если она не существует, и копируем исполнимый файл Python
-RUN mkdir -p /myenv/Scripts && cp /usr/local/bin/python /myenv/Scripts/python \
-    >> /app/docker_build.log 2>&1
+# Копируем ваши зависимости
+COPY requirements.txt .
+RUN pip install -r requirements.txt
 
-# Устанавливаем переменные окружения для использования виртуального окружения
-ENV VIRTUAL_ENV="/myenv"
-ENV PATH="/myenv/Scripts:$PATH"
-ENV PATH="/myenv/bin:$PATH"
-
-# Устанавливаем pip в виртуальное окружение
-RUN curl -s https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
-    /myenv/Scripts/python get-pip.py >> /app/docker_build.log 2>&1 && \
-    rm get-pip.py
-
-# Проверяем, что используется Python из виртуального окружения
-RUN echo "=== Проверка доступных исполнимых файлов ===" >> /app/docker_build.log && \
-    ls -l /usr/local/bin/ >> /app/docker_build.log && \
-    echo "=== Проверка директории виртуального окружения ===" >> /app/docker_build.log && \
-    ls -l /myenv/Scripts/ >> /app/docker_build.log && \
-    echo "=== Проверка используемого Python ===" >> /app/docker_build.log && \
-    which python >> /app/docker_build.log && \
-    python --version >> /app/docker_build.log && \
-    echo "=== Список установленных пакетов ===" >> /app/docker_build.log && \
-    python -m pip list >> /app/docker_build.log
-
-# Копируем остальные файлы проекта
+# Копируем ваш код
 COPY . .
 
-# Определяем директорию site-packages и копируем пакеты
-RUN SITE_PATH=$(python -c "import site; import sys; print(site.getsitepackages()[0])") && \
-    echo "Site Packages Path: $SITE_PATH" >> /app/docker_build.log && \
-    cp -r /myenv/Lib/site-packages/* $SITE_PATH/ >> /app/docker_build.log
+# Патчим нужный файл, меняя "from collections import" на "from collections.abc import"
+# ПУТЬ зависит от того, где реально лежит пакет wordpress_xmlrpc в контейнере.
+# Если вы точно знаете, что нужен именно "env/lib/wordpress_xmlrpc/base.py" — 
+# используйте именно этот путь.
+RUN find / -type f -name base.py | grep "wordpress_xmlrpc" \
+    | xargs -I{} sed -i 's/from collections import /from collections.abc import /g' {}
 
-# Логирование завершения сборки
-RUN echo "Сборка завершена." >> /app/docker_build.log
-
-# Команда для запуска приложения с логированием
-CMD ["/bin/sh", "-c", "/myenv/Scripts/python main.py 2>&1 | tee -a /app/app.log"]
+# Запуск
+CMD ["python", "main.py"]
