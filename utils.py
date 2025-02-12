@@ -138,7 +138,7 @@ def rewrite_text(text, prompt):
             model="gpt-4",
             messages=[{"role": "system", "content": "You are a helpful assistant."},
                       {"role": "user", "content": f"{prompt}\n\n{text}"}],
-            http_client=openai.http_client.RequestsClient(proxies=proxies)
+            http_client=openai.http_client.RequestsClient(proxies=PROXY)
         )
         return response["choices"][0]["message"]["content"].strip()
     except Exception as e:
