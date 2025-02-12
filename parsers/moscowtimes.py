@@ -26,6 +26,7 @@ PLAYWRIGHT_PROXY = {
 
 RSS_FEED_URL = "https://www.moscowtimes.ru/rss/news"
 
+print(45546)
 
 def parse_page(url):
     """
