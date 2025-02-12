@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import requests
 import xml.etree.ElementTree as ET
@@ -13,24 +14,28 @@ import time
 import asyncio
 import logging
 
-# Настройка прокси с авторизацией
+# ------------------- ВАЖНО: Настраиваем прокси -------------------
+# Для всех HTTP/HTTPS-запросов, включая openai, используем переменные окружения.
+os.environ["HTTP_PROXY"] = "http://user215587:rfqa06@163.5.39.69:2966"
+os.environ["HTTPS_PROXY"] = "http://user215587:rfqa06@163.5.39.69:2966"
+
+# Если у вас в системе строгая проверка SSL-сертификатов
+# и возникают ошибки, можно ВРЕМЕННО отключить:
+# os.environ["PYTHONWARNINGS"] = "ignore:Unverified HTTPS request"
+
+# ------------------ Настройка логирования ------------------------
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# ------------------- Настройка прокси для requests ---------------
 PROXY = {
     "http": "http://user215587:rfqa06@163.5.39.69:2966",
     "https": "http://user215587:rfqa06@163.5.39.69:2966",
 }
 
-# Настройка логирования
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# Для обрезки фото
-# from PIL import Image
-# import pytesseract
-import requests
-from io import BytesIO
-
+# ------------------ Инициализация WordPress клиент ---------------
 wp_client = Client(WP_URL, WP_USERNAME, WP_PASSWORD)
 
-
+# ------------------ ФУНКЦИИ РАБОТЫ С БД --------------------------
 def setup_database():
     """Создание таблицы для хранения обработанных статей"""
     conn = sqlite3.connect(DB_NAME)
@@ -41,11 +46,10 @@ def setup_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             link TEXT UNIQUE NOT NULL
         )
-    """
+        """
     )
     conn.commit()
     conn.close()
-
 
 def is_article_processed(link):
     """Проверка, была ли статья уже обработана"""
@@ -55,7 +59,6 @@ def is_article_processed(link):
     result = cursor.fetchone()
     conn.close()
     return result is not None
-
 
 def mark_article_as_processed(link):
     """Пометка статьи как обработанной"""
@@ -67,7 +70,7 @@ def mark_article_as_processed(link):
     conn.commit()
     conn.close()
 
-
+# ------------------ ФУНКЦИЯ ЗАГРУЗКИ RSS -------------------------
 def fetch_rss(rss_url):
     """Получение и разбор RSS"""
     headers = {
@@ -99,7 +102,7 @@ def fetch_rss(rss_url):
         for item in root.findall(".//item")
     ]
 
-
+# ------------------ ОЧИСТКА ТЕКСТА -------------------------------
 def clean_text(content):
     """
     Убирает первое предложение:
@@ -108,16 +111,13 @@ def clean_text(content):
     """
     match_ria = re.match(r"^[^.!?]*?РИА Новости[.!?]", content)
     if match_ria:
-        content = content[match_ria.end() :].strip()
+        content = content[match_ria.end():].strip()
 
-    match_reuters = re.match(
-        r"^[^.!?]*?[А-ЯЁ][а-яё]+, \d{1,2} \w+ \(Рейтер\) —", content
-    )
+    match_reuters = re.match(r"^[^.!?]*?[А-ЯЁ][а-яё]+, \d{1,2} \w+ \(Рейтер\) —", content)
     if match_reuters:
-        content = content[match_reuters.end() :].strip()
+        content = content[match_reuters.end():].strip()
 
     return content
-
 
 def clean_title(title):
     """
@@ -130,32 +130,38 @@ def clean_title(title):
     title = title.replace('"', "").replace("'", "").strip()
     return title
 
+# ------------------ РЕРАЙТ ТЕКСТА (OpenAI) -----------------------
+import openai
+openai.api_key = openai_api_key  # Передаём ваш API-ключ
 
 def rewrite_text(text, prompt):
-    import openai
-
-    openai.api_key = openai_api_key
-
+    """
+    Делает рерайт текста, используя OpenAI Chat Completion.
+    При этом все HTTP-запросы (включая к OpenAI) пойдут через прокси,
+    так как у нас установлены переменные окружения HTTP_PROXY/HTTPS_PROXY.
+    """
     try:
         logging.info(f"Начинаем рерайт текста с подсказкой: {prompt}")
         response = openai.ChatCompletion.create(
-            model="gpt-4o-mini-2024-07-18",
-            messages=[{"role": "system", "content": "You are a helpful assistant."},
-                      {"role": "user", "content": f"{prompt}\n\n{text}"}],
+            model="gpt-4o-mini-2024-07-18",  # Или любой доступный вам модельный идентификатор
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": f"{prompt}\n\n{text}"}
+            ],
         )
         return response["choices"][0]["message"]["content"].strip()
     except Exception as e:
         logging.error(f"Ошибка рерайта текста: {e}")
         return text
 
-
+# ------------------ ГЕНЕРАЦИЯ SEO МЕТА ---------------------------
 def generate_meta(title, content):
-    """Генерация SEO мета-тегов"""
+    """Генерация SEO мета-тегов через OpenAI"""
     meta_title = rewrite_text(title, "Создай короткий SEO-заголовок:")
     meta_description = rewrite_text(content, "Создай описание длиной до 160 символов:")
     return meta_title, meta_description
 
-
+# ------------------ ПОИСК КАТЕГОРИИ НА WP ------------------------
 def get_category_id_by_name(category_name):
     """Получает ID категории по её названию."""
     try:
@@ -169,6 +175,7 @@ def get_category_id_by_name(category_name):
         logging.error(f"Ошибка при получении категории: {e}")
         return None
 
+# ------------------ ПУБЛИКАЦИЯ НА WORDPRESS ----------------------
 def publish_to_wordpress(
     title, content, meta_title, meta_description, category=None, image_url=None
 ):
@@ -197,7 +204,7 @@ def publish_to_wordpress(
         if category_id:
             post.terms_names = {"category": [category]}  # Указываем категорию
         else:
-            logging.warning(f"Категория '{category}' не будет добавлена к посту.")
+            logging.warning(f"Категория '{category}' не найдена и не будет добавлена к посту.")
             return
 
     # Публикация поста
@@ -209,7 +216,7 @@ def publish_to_wordpress(
         logging.error(f"Ошибка публикации статьи: {e}")
         return None
 
-
+# ------------------ ЗАГРУЗКА ИЗОБРАЖЕНИЯ НА WP ------------------
 def upload_image_to_wordpress(image_path):
     """Загрузка изображения на WordPress через прокси"""
     try:
@@ -217,19 +224,15 @@ def upload_image_to_wordpress(image_path):
             print("[DEBUG] Нет изображения для загрузки.")
             return None, None
 
-        # Прокси-сервер
-        proxies = {
-            "http": "http://user215587:rfqa06@163.5.39.69:2966",
-            "https": "http://user215587:rfqa06@163.5.39.69:2966",
-        }
-
-        # Загружаем изображение через прокси
+        # Загружаем изображение через proxies
         if not image_path.startswith("http"):
+            # Локальный файл
             with open(image_path, "rb") as img_file:
                 image_bits = img_file.read()
-            image_name = image_path.split("/")[-1]  # Имя файла
+            image_name = image_path.split("/")[-1]
         else:
-            response = requests.get(image_path, proxies=proxies, verify=False)  # Не проверять SSL
+            # Внешняя ссылка
+            response = requests.get(image_path, proxies=PROXY, verify=False)
             if response.status_code != 200:
                 print(f"[ERROR] Ошибка загрузки изображения: {response.status_code}")
                 return None, None
@@ -245,12 +248,11 @@ def upload_image_to_wordpress(image_path):
         # Загрузка изображения в WordPress
         upload_response = wp_client.call(UploadFile(image_data))
         return upload_response["id"], upload_response["url"]
-
     except Exception as e:
         print(f"[ERROR] Ошибка загрузки изображения в WordPress: {e}")
         return None, None
 
-
+# ------------------ ПОЛУЧЕНИЕ URL ПОСТА -------------------------
 def get_wordpress_post_url(post_id):
     """
     Получение URL опубликованного поста по его ID.
@@ -262,31 +264,31 @@ def get_wordpress_post_url(post_id):
         logging.error(f"Не удалось получить URL поста: {e}")
         return None
 
+# ------------------ ПРОВЕРКА/ОБРАБОТКА ИЗОБРАЖЕНИЯ --------------
 def check_and_crop_image(image_url):
-    """Проверка изображения на наличие слова 'Reuters' и обрезка на 10% сверху и снизу"""
+    """
+    Проверка изображения на наличие слова 'Reuters' и обрезка на 10% сверху/снизу
+    (закомментировано, т.к. требует PIL+pytesseract).
+    """
     try:
-        # Загрузка изображения
+        # Если хотите использовать PIL + pytesseract для распознавания текста на изображении,
+        # раскомментируйте соответствующие импорты и код ниже.
+
+        # from PIL import Image
+        # import pytesseract
         # response = requests.get(image_url, proxies=PROXY)
         # image = Image.open(BytesIO(response.content))
-
-        # # Распознавание текста на изображении
+        #
         # text = pytesseract.image_to_string(image)
-
-        # # Проверка на наличие слова 'Reuters'
         # if 'REUTERS' in text:
         #     logging.debug("На изображении найдено слово 'Reuters'. Обрезка изображения...")
         #     width, height = image.size
-        #     crop_height = int(height * 0.15)  # 10% от высоты изображения
-
-        #     # Обрезка изображения на 10% сверху и снизу
+        #     crop_height = int(height * 0.15)
         #     cropped_image = image.crop((0, crop_height, width, height - crop_height))
-
-        #     # Сохранение обрезанного изображения во временный файл
         #     cropped_image_path = "cropped_image.jpg"
         #     cropped_image.save(cropped_image_path)
-
         #     return cropped_image_path
-        # else:
+
         return image_url
 
     except Exception as e:
