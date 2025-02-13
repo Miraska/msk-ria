@@ -82,7 +82,7 @@ def process_rss():
         if random_article.get("enclosure"):
             enclosure = random_article.get("enclosure")
             if "image/jpeg" in enclosure:
-                image_url = enclosure
+                image_url = enclosure.get("url")
 
         if not image_url:
             print("[Warning] Статья не опубликована из-за отсутствия изображения")
