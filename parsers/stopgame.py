@@ -1,8 +1,8 @@
-import requests
-from bs4 import BeautifulSoup
-from telegram_bot import send_report
-import asyncio
 import random
+import asyncio
+from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright  # Используем синхронный API Playwright
+from telegram_bot import send_report
 from utils import (
     fetch_rss,
     is_article_processed,
@@ -19,43 +19,40 @@ RSS_FEED_URL = "https://rss.stopgame.ru/rss_news.xml"
 
 
 def parse_page(url):
-    """Парсинг страницы Habr"""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Connection": "keep-alive",
-    }
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        print(f"[ERROR] Ошибка загрузки страницы: {url}")
-        return None
+    """Парсинг страницы Stopgame с использованием Playwright"""
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(url, wait_until="domcontentloaded")
+        # Добавляем задержку для гарантии полной загрузки контента
+        page.wait_for_timeout(3000)
+        html = page.content()
+        browser.close()
 
-    soup = BeautifulSoup(response.content, "html.parser")
+    soup = BeautifulSoup(html, "html.parser")
 
-    title = soup.find("h1")
-    title = title.get_text(strip=True) if title else "Заголовок не найден"
+    # Извлекаем заголовок
+    title_tag = soup.find("h1")
+    title = title_tag.get_text(strip=True) if title_tag else "Заголовок не найден"
 
+    # Извлекаем содержимое статьи
     body = soup.find("div", class_="_content_5hrm4_13")
-
     paragraphs = body.find_all("p") if body else []
+    # Удаляем вложенные SVG, если они есть
     for p in paragraphs:
         for svg in p.find_all("svg"):
             svg.decompose()
-    content = "\n\n".join(
-        p.decode_contents() for p in paragraphs
-    )  # Сохраняем теги <a> в содержимом
+    content = "\n\n".join(p.decode_contents() for p in paragraphs)
 
-    image_div = soup.find("div", "_image-wrapper_5hrm4_173 _image-width_5hrm4_116")
-    image_url = (
-        image_div.find("img")["src"] if image_div and image_div.find("img") else None
-    )
+    # Извлекаем URL изображения
+    image_div = soup.find("div", class_="_image-wrapper_5hrm4_173 _image-width_5hrm4_116")
+    image_url = image_div.find("img")["src"] if image_div and image_div.find("img") else None
 
     return title, content, image_url
 
 
 def process_rss():
-    """Обработка RSS для Championat"""
+    """Обработка RSS для Stopgame с использованием Playwright для загрузки страниц"""
     articles = fetch_rss(RSS_FEED_URL)
     print(f"[DEBUG] Найдено {len(articles)} статей.")
 
@@ -63,18 +60,16 @@ def process_rss():
         print("[DEBUG] Нет статей для обработки.")
         return
 
+    # Обрабатываем одну случайную статью (для примера)
     for i in range(1):
-        # Выбираем случайную статью
         random_article = random.choice(articles)
         link = random_article["link"]
 
-        while True:
-            if is_article_processed(link):
-                random_article = random.choice(articles)
-                link = random_article["link"]
-                print(f"[DEBUG] Статья уже обработана: {link}")
-                continue
-            break
+        # Если статья уже обработана, выбираем другую
+        while is_article_processed(link):
+            random_article = random.choice(articles)
+            link = random_article["link"]
+            print(f"[DEBUG] Статья уже обработана: {link}")
 
         parsed_data = parse_page(link)
         if not parsed_data:
@@ -85,9 +80,12 @@ def process_rss():
 
         # Если в RSS есть enclosure (изображение), используем его
         if random_article.get("enclosure"):
-            image_url = random_article["enclosure"]
+            enclosure = random_article.get("enclosure")
+            if "image/jpeg" in enclosure:
+                image_url = enclosure
 
         if not image_url:
+            print("[Warning] Статья не опубликована из-за отсутствия изображения")
             mark_article_as_processed(link)
             i -= 1
             continue
@@ -104,9 +102,7 @@ def process_rss():
         )
 
         final_title = clean_title(rewritten_title)
-
         meta_title, meta_description = generate_meta(final_title, rewritten_content)
-
         final_meta_title = clean_title(meta_title)
 
         mark_article_as_processed(link)
@@ -122,7 +118,6 @@ def process_rss():
 
         if post_id:
             published_link = get_wordpress_post_url(post_id)
-
             if published_link:
                 asyncio.run(
                     send_report("Stopgame Parser", link, published_link, final_title)
