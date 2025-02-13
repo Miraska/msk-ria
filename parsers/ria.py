@@ -1,8 +1,8 @@
-import requests
-from bs4 import BeautifulSoup
-from telegram_bot import send_report
-import asyncio
 import random
+import asyncio
+from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright  # Синхронный API Playwright
+from telegram_bot import send_report
 from utils import (
     fetch_rss,
     is_article_processed,
@@ -19,37 +19,37 @@ RSS_FEED_URL = "https://ria.ru/export/rss2/archive/index.xml"
 
 
 def parse_page(url):
-    """Парсинг страницы RIA"""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Connection": "keep-alive",
-    }
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        print(f"[ERROR] Ошибка загрузки страницы: {url}")
-        return None
+    """Парсинг страницы RIA с использованием Playwright"""
+    with sync_playwright() as p:
+        # Запускаем Chromium в headless-режиме
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(url, wait_until="domcontentloaded")
+        # При необходимости можно добавить задержку, чтобы контент точно загрузился
+        page.wait_for_timeout(3000)
+        html = page.content()
+        browser.close()
 
-    soup = BeautifulSoup(response.content, "html.parser")
+    soup = BeautifulSoup(html, "html.parser")
 
-    title = soup.find("div", class_="article__title")
-    title = title.get_text(strip=True) if title else "Заголовок не найден"
+    # Извлекаем заголовок
+    title_div = soup.find("div", class_="article__title")
+    title = title_div.get_text(strip=True) if title_div else "Заголовок не найден"
 
+    # Извлекаем тело статьи: находим div с классом "article__body"
     body = soup.find("div", class_="article__body")
     paragraphs = body.find_all("div", class_="article__text") if body else []
     content = "\n\n".join(p.get_text(strip=True) for p in paragraphs)
 
+    # Извлекаем URL изображения: ищем div с классом "media__size" и затем тег <img>
     image_div = soup.find("div", class_="media__size")
-    image_url = (
-        image_div.find("img")["src"] if image_div and image_div.find("img") else None
-    )
+    image_url = image_div.find("img")["src"] if image_div and image_div.find("img") else None
 
     return title, content, image_url
 
 
 def process_rss():
-    """Обработка RSS для Championat"""
+    """Обработка RSS для RIA с использованием Playwright для загрузки страниц"""
     articles = fetch_rss(RSS_FEED_URL)
     print(f"[DEBUG] Найдено {len(articles)} статей.")
 
@@ -57,18 +57,16 @@ def process_rss():
         print("[DEBUG] Нет статей для обработки.")
         return
 
+    # Обрабатываем одну случайную статью (для примера)
     for i in range(1):
-        # Выбираем случайную статью
         random_article = random.choice(articles)
         link = random_article["link"]
 
-        while True:
-            if is_article_processed(link):
-                random_article = random.choice(articles)
-                link = random_article["link"]
-                print(f"[DEBUG] Статья уже обработана: {link}")
-                continue
-            break
+        # Если статья уже обработана, выбираем другую
+        while is_article_processed(link):
+            random_article = random.choice(articles)
+            link = random_article["link"]
+            print(f"[DEBUG] Статья уже обработана: {link}")
 
         parsed_data = parse_page(link)
         if not parsed_data:
@@ -77,7 +75,7 @@ def process_rss():
         title, raw_content, image_url = parsed_data
         print(f"[DEBUG] Заголовок статьи: {title}")
 
-        # Если в RSS есть enclosure (изображение), используем его
+        # Если в RSS есть enclosure (изображение), используем его, если содержит "image/jpeg"
         if random_article.get("enclosure"):
             enclosure = random_article.get("enclosure")
             if "image/jpeg" in enclosure:
@@ -101,9 +99,7 @@ def process_rss():
         )
 
         final_title = clean_title(rewritten_title)
-
         meta_title, meta_description = generate_meta(final_title, rewritten_content)
-
         final_meta_title = clean_title(meta_title)
 
         mark_article_as_processed(link)
@@ -119,7 +115,6 @@ def process_rss():
 
         if post_id:
             published_link = get_wordpress_post_url(post_id)
-
             if published_link:
                 asyncio.run(
                     send_report("Ria Parser", link, published_link, final_title)
