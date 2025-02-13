@@ -21,11 +21,11 @@ RSS_FEED_URL = "https://rss.stopgame.ru/rss_news.xml"
 def parse_page(url):
     """Парсинг страницы Stopgame с использованием Playwright"""
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(headless=True, proxy=PLAYWRIGHT_PROXY)
         page = browser.new_page()
         page.goto(url, wait_until="domcontentloaded")
         # Добавляем задержку для гарантии полной загрузки контента
-        page.wait_for_timeout(3000)
+        page.wait_for_timeout(5000)
         html = page.content()
         browser.close()
 
@@ -81,8 +81,7 @@ def process_rss():
         # Если в RSS есть enclosure (изображение), используем его
         if random_article.get("enclosure"):
             enclosure = random_article.get("enclosure")
-            if "image/jpeg" in enclosure:
-                image_url = enclosure.get("url")
+            image_url = enclosure
 
         if not image_url:
             print("[Warning] Статья не опубликована из-за отсутствия изображения")
