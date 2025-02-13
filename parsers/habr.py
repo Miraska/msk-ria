@@ -1,8 +1,8 @@
-import requests
-from bs4 import BeautifulSoup
-from telegram_bot import send_report
-import asyncio
 import random
+import asyncio
+from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright  # Синхронный API Playwright
+from telegram_bot import send_report
 from utils import (
     fetch_rss,
     is_article_processed,
@@ -19,43 +19,46 @@ RSS_FEED_URL = "https://habr.com/ru/rss/news/?fl=ru"
 
 
 def parse_page(url):
-    """Парсинг страницы Habr"""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Connection": "keep-alive",
-    }
-    response = requests.get(url, headers=headers)
+    """Парсинг страницы Habr с использованием Playwright"""
+    with sync_playwright() as p:
+        # Запускаем Chromium в headless-режиме
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        # Переходим на страницу и ждём загрузки DOM
+        page.goto(url, wait_until="domcontentloaded")
+        # Ждём, чтобы страница полностью прогрузилась (при необходимости можно увеличить время)
+        page.wait_for_timeout(3000)
+        html = page.content()
+        browser.close()
 
-    if response.status_code != 200:
-        print(f"[ERROR] Ошибка загрузки страницы: {url}")
-        return None
+    soup = BeautifulSoup(html, "html.parser")
 
-    soup = BeautifulSoup(response.content, "html.parser")
+    # Извлекаем заголовок: ищем <h1> и затем его дочерний <span> (если есть)
+    h1_tag = soup.find("h1")
+    if h1_tag:
+        span_tag = h1_tag.find("span")
+        title = span_tag.get_text(strip=True) if span_tag else h1_tag.get_text(strip=True)
+    else:
+        title = "Заголовок не найден"
 
-    title = soup.find("h1").find("span")
-    title = title.get_text(strip=True) if title else "Заголовок не найден"
-
+    # Извлекаем основной контент: div с классом "tm-article-body"
     body = soup.find("div", class_="tm-article-body")
-
     paragraphs = body.find_all("p") if body else []
-    content = "\n\n".join(
-        p.decode_contents() for p in paragraphs
-    )  # Сохраняем теги <a> в содержимом
+    content = "\n\n".join(p.decode_contents() for p in paragraphs)
 
+    # Извлекаем URL изображения: ищем первый <figure> и затем тег <img>
     image_div = soup.find("figure")
-    image_url = (
-        image_div.find("img").get("data-src")
-        if image_div and image_div.find("img")
-        else None
-    )
+    if image_div:
+        img_tag = image_div.find("img")
+        image_url = img_tag.get("data-src") if img_tag else None
+    else:
+        image_url = None
 
     return title, content, image_url
 
 
 def process_rss():
-    """Обработка RSS для Championat"""
+    """Обработка RSS для Habr с использованием Playwright для загрузки страниц"""
     articles = fetch_rss(RSS_FEED_URL)
     print(f"[DEBUG] Найдено {len(articles)} статей.")
 
@@ -68,13 +71,11 @@ def process_rss():
         random_article = random.choice(articles)
         link = random_article["link"]
 
-        while True:
-            if is_article_processed(link):
-                random_article = random.choice(articles)
-                link = random_article["link"]
-                print(f"[DEBUG] Статья уже обработана: {link}")
-                continue
-            break
+        # Если статья уже обработана – выбираем другую
+        while is_article_processed(link):
+            random_article = random.choice(articles)
+            link = random_article["link"]
+            print(f"[DEBUG] Статья уже обработана: {link}")
 
         parsed_data = parse_page(link)
         if not parsed_data:
@@ -88,6 +89,7 @@ def process_rss():
             image_url = random_article["enclosure"]
 
         if not image_url:
+            print("[DEBUG] Пропускаем статью, т.к. не найдено изображение")
             mark_article_as_processed(link)
             i -= 1
             continue
@@ -104,9 +106,7 @@ def process_rss():
         )
 
         final_title = clean_title(rewritten_title)
-
         meta_title, meta_description = generate_meta(final_title, rewritten_content)
-
         final_meta_title = clean_title(meta_title)
 
         mark_article_as_processed(link)
@@ -122,7 +122,6 @@ def process_rss():
 
         if post_id:
             published_link = get_wordpress_post_url(post_id)
-
             if published_link:
                 asyncio.run(
                     send_report("Habr Parser", link, published_link, final_title)
