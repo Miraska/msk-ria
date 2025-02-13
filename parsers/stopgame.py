@@ -17,6 +17,12 @@ from utils import (
 
 RSS_FEED_URL = "https://rss.stopgame.ru/rss_news.xml"
 
+PLAYWRIGHT_PROXY = {
+    "server": "http://163.5.39.69:2966",
+    "username": "user215587",
+    "password": "rfqa06"
+}
+
 
 def parse_page(url):
     """Парсинг страницы Stopgame с использованием Playwright"""
