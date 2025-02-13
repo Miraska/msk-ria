@@ -77,7 +77,7 @@ def process_rss():
 
         # Если в RSS есть enclosure (изображение), используем его
         if random_article.get("enclosure"):
-            image_url = random_article["enclosure"]
+            image_url = random_article.get("enclosure")
 
         if not image_url:
             print("[Warning] Статья не опубликована из-за отсутствия изображения")
