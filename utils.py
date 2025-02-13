@@ -13,6 +13,9 @@ import logging
 import openai
 from io import BytesIO
 
+HTTP_PROXY = "http://rsherov9719:21b909@145.239.27.89:10187"
+SOCKS_PROXY = "socks5://rsherov9719:21b909@145.239.27.89:10188"
+
 # Настройка прокси с авторизацией
 PROXY = {
     "http": "http://user215587:rfqa06@163.5.39.69:2966",
@@ -24,6 +27,8 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 
 # Инициализация клиента WordPress
 wp_client = Client(WP_URL, WP_USERNAME, WP_PASSWORD)
+
+openai.proxy = SOCKS_PROXY
 
 # Установка ключа OpenAI
 openai.api_key = openai_api_key
@@ -129,8 +134,7 @@ def rewrite_text(text, prompt):
             messages=[
                 {"role": "system", "content": "Ты полезный ассистент."},
                 {"role": "user", "content": f"{prompt}\n\n{text}"}
-            ],
-            http_client=openai.http_client.RequestsClient(proxies=PROXY)
+            ]
         )
         return response["choices"][0]["message"]["content"].strip()
     except Exception as e:
@@ -244,27 +248,3 @@ def check_and_crop_image(image_url):
     except Exception as e:
         logging.error(f"Ошибка при обработке изображения: {e}")
         return image_url
-
-def check_openai():
-    """
-    Функция для проверки работы OpenAI API.
-    Отправляет тестовый запрос к ChatCompletion и возвращает True, если запрос успешен, иначе False.
-    """
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "Ты полезный ассистент."},
-                {"role": "user", "content": "Привет, проверь работу OpenAI."}
-            ],
-            http_client=openai.http_client.RequestsClient(proxies=PROXY)
-        )
-        if response and "choices" in response and len(response["choices"]) > 0:
-            logging.info("OpenAI API работает корректно.")
-            return True
-        else:
-            logging.error("Ответ от OpenAI API пуст или некорректен.")
-            return False
-    except Exception as e:
-        logging.error(f"Ошибка проверки OpenAI API: {e}")
-        return False
