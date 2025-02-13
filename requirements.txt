@@ -7,3 +7,4 @@ asyncio
 pytesseract
 schedule
 playwright
+pysocks
