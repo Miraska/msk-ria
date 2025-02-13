@@ -10,31 +10,23 @@ import re
 import time
 import asyncio
 import logging
+import openai
 from io import BytesIO
 
-# Подключаем класс OpenAI (DeepSeek)
-from openai import OpenAI
-
-# Настройка прокси с авторизацией (если DeepSeek поддерживает напрямую).
+# Настройка прокси с авторизацией
 PROXY = {
     "http": "http://user215587:rfqa06@163.5.39.69:2966",
     "https": "http://user215587:rfqa06@163.5.39.69:2966",
 }
 
-# Инициализация клиента WordPress
-wp_client = Client(WP_URL, WP_USERNAME, WP_PASSWORD)
-
-# Инициализация клиента DeepSeek
-client = OpenAI(
-    api_key=openai_api_key,            # ваш ключ
-    base_url="https://api.deepseek.com"
-    # если требуется прокси, и DeepSeek поддерживает передачу через аргументы:
-    # proxies=PROXY
-)
-
 # Настройка логирования
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Инициализация клиента WordPress
+wp_client = Client(WP_URL, WP_USERNAME, WP_PASSWORD)
+
+# Установка ключа OpenAI
+openai.api_key = openai_api_key
 
 def setup_database():
     """Создание таблицы для хранения обработанных статей"""
@@ -51,7 +43,6 @@ def setup_database():
     conn.commit()
     conn.close()
 
-
 def is_article_processed(link):
     """Проверка, была ли статья уже обработана"""
     conn = sqlite3.connect(DB_NAME)
@@ -60,7 +51,6 @@ def is_article_processed(link):
     result = cursor.fetchone()
     conn.close()
     return result is not None
-
 
 def mark_article_as_processed(link):
     """Пометка статьи как обработанной"""
@@ -71,7 +61,6 @@ def mark_article_as_processed(link):
     )
     conn.commit()
     conn.close()
-
 
 def fetch_rss(rss_url):
     """Получение и разбор RSS"""
@@ -103,7 +92,6 @@ def fetch_rss(rss_url):
         for item in root.findall(".//item")
     ]
 
-
 def clean_text(content):
     """
     Убирает первое предложение:
@@ -122,7 +110,6 @@ def clean_text(content):
 
     return content
 
-
 def clean_title(title):
     """
     Очищает заголовки:
@@ -134,33 +121,27 @@ def clean_title(title):
     title = title.replace('"', "").replace("'", "").strip()
     return title
 
-
 def rewrite_text(text, prompt):
-    """Рерайт текста с помощью DeepSeek."""
     try:
         logging.info(f"Начинаем рерайт текста с подсказкой: {prompt}")
-        response = client.chat.completions.create(
-            model="deepseek-chat",
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": "Ты полезный ассистент."},
                 {"role": "user", "content": f"{prompt}\n\n{text}"}
             ],
-            stream=False
-            # Если DeepSeek позволяет указать прокси — добавьте в параметры:
-            # proxies=PROXY
+            http_client=openai.http_client.RequestsClient(proxies=PROXY)
         )
         return response["choices"][0]["message"]["content"].strip()
     except Exception as e:
         logging.error(f"Ошибка рерайта текста: {e}")
         return text
 
-
 def generate_meta(title, content):
-    """Генерация SEO мета-тегов при помощи DeepSeek."""
+    """Генерация SEO мета-тегов"""
     meta_title = rewrite_text(title, "Создай короткий SEO-заголовок:")
     meta_description = rewrite_text(content, "Создай описание длиной до 160 символов:")
     return meta_title, meta_description
-
 
 def get_category_id_by_name(category_name):
     """Получает ID категории по её названию."""
@@ -174,7 +155,6 @@ def get_category_id_by_name(category_name):
     except Exception as e:
         logging.error(f"Ошибка при получении категории: {e}")
         return None
-
 
 def publish_to_wordpress(title, content, meta_title, meta_description, category=None, image_url=None):
     """Публикация на WordPress"""
@@ -213,7 +193,6 @@ def publish_to_wordpress(title, content, meta_title, meta_description, category=
         logging.error(f"Ошибка публикации статьи: {e}")
         return None
 
-
 def upload_image_to_wordpress(image_path):
     """Загрузка изображения на WordPress через прокси"""
     try:
@@ -248,7 +227,6 @@ def upload_image_to_wordpress(image_path):
         logging.error(f"Ошибка загрузки изображения в WordPress: {e}")
         return None, None
 
-
 def get_wordpress_post_url(post_id):
     """Получение URL опубликованного поста по его ID."""
     try:
@@ -258,38 +236,35 @@ def get_wordpress_post_url(post_id):
         logging.error(f"Не удалось получить URL поста: {e}")
         return None
 
-
 def check_and_crop_image(image_url):
-    """Проверка изображения на наличие слова 'Reuters' и обрезка на 10% сверху и снизу (заготовка)."""
+    """Проверка изображения на наличие слова 'Reuters' и обрезка на 10% сверху и снизу"""
     try:
-        # Здесь можно добавить логику обрезки с PIL / pytesseract по необходимости
+        # Здесь можно добавить логику обрезки изображения с использованием PIL и pytesseract
         return image_url
     except Exception as e:
         logging.error(f"Ошибка при обработке изображения: {e}")
         return image_url
 
-
-def check_deepseek():
+def check_openai():
     """
-    Пример функции для проверки работы DeepSeek API.
-    Отправляет тестовый запрос в чат-модель и возвращает True, если запрос успешен, иначе False.
+    Функция для проверки работы OpenAI API.
+    Отправляет тестовый запрос к ChatCompletion и возвращает True, если запрос успешен, иначе False.
     """
     try:
-        response = client.chat.completions.create(
-            model="deepseek-chat",
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": "Ты полезный ассистент."},
-                {"role": "user", "content": "Привет, проверь работу DeepSeek."}
+                {"role": "user", "content": "Привет, проверь работу OpenAI."}
             ],
-            stream=False
-            # proxies=PROXY  # если в вашей конфигурации нужно
+            http_client=openai.http_client.RequestsClient(proxies=PROXY)
         )
         if response and "choices" in response and len(response["choices"]) > 0:
-            logging.info("DeepSeek API работает корректно.")
+            logging.info("OpenAI API работает корректно.")
             return True
         else:
-            logging.error("Ответ от DeepSeek API пуст или некорректен.")
+            logging.error("Ответ от OpenAI API пуст или некорректен.")
             return False
     except Exception as e:
-        logging.error(f"Ошибка проверки DeepSeek API: {e}")
+        logging.error(f"Ошибка проверки OpenAI API: {e}")
         return False
